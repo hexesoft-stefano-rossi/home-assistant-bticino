@@ -1,6 +1,6 @@
 name: "Hexesoft BTicino"
 description: "Bridge BTicino SCS in Home Assistant"
-version: "2.0.0"
+version: "2.1.0"
 slug: "hexesoft_bticino"
 arch:
   - aarch64
