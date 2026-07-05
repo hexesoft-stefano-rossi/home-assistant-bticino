@@ -1,6 +1,6 @@
 name: "Hexesoft BTicino"
 description: "Bridge BTicino SCS in Home Assistant"
-version: "2.2.1"
+version: "2.2.2"
 slug: "hexesoft_bticino"
 arch:
   - aarch64
@@ -123,13 +123,14 @@ schema:
         timer: list(none|0.5s|2s|30s|1m|2m|3m|4m|5m|10m|15m)?
         model: str?
     
-  thermostats:
+    thermostats:
     devices:
       - name: str
         zone: int(0,99)
         canHeat: bool?
         canCool: bool?
         manageFan: bool?
+        startup_preset: list(comfort|economy)?
         model: str?
       
   mqtt:
