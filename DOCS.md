@@ -27,7 +27,7 @@ Il bridge si collega al gateway fisico Bticino (es. F454) e:
 - **Pulsante "Scansiona rete"**: un comando in Home Assistant per rileggere su richiesta lo stato di tutto l'impianto.
 - **Diagnostica del gateway**: pubblica modello, indirizzo IP, subnet mask, MAC e versione firmware del web server Bticino.
 - **Stato del bridge**: entità Online/Offline (Last Will MQTT), così sai sempre se il ponte è attivo.
-- **Log leggibile**: console colorata per livello, con verbosità configurabile (`info`, `debug`, `warning`, `error`).
+- **Log leggibile**: console colorata per livello, con verbosità configurabile (`info`, `debug`, `warning`, `error`), con formato tabellare simmetrico (vedi *Formato del log*).
 
 ### Integrazione VRF / gateway (avanzata)
 Per le zone configurate come **gateway**, il termostato a muro può pilotare un sistema esterno (es. un VRF Mitsubishi gestito da un bridge dedicato): il bridge inoltra la velocità della ventola scelta in Home Assistant sul canale MQTT condiviso e riaccende/spegne l'icona "in funzione" sul termostato fisico.
@@ -42,6 +42,47 @@ Il bridge apre **due connessioni** verso il gateway Bticino (porta 20000):
 Se il gateway richiede la password OPEN, l'autenticazione (HMAC-SHA256) avviene in automatico. Ogni dispositivo è
 indicizzato per il proprio topic MQTT, così i messaggi vengono instradati istantaneamente. Gli stati sono pubblicati
 con flag *retain*: Home Assistant li ritrova anche dopo un riavvio.
+
+## Formato del log
+
+Ogni riga di log ha una struttura tabellare fissa così da restare **incolonnata** anche in sessioni lunghe:
+
+```
+[HH:mm:ss.fff]  LIVELLO | MITT -> DEST | messaggio
+```
+
+- **`MITT`** è chi genera l'informazione, **`DEST`** è chi la riceve/consuma.
+- Entrambe le sigle sono **sempre di 4 caratteri**, così la freccia `->` e i due `|` cadono nelle stesse colonne per tutta la giornata.
+
+### Sigle usate
+
+| Sigla  | Cosa rappresenta                                                                                          |
+|--------|-----------------------------------------------------------------------------------------------------------|
+| `CORE` | Sistema/lifecycle: avvio del servizio, arresto pulito, configurazione non valida, host .NET                |
+| `HEXE` | Logica interna del Bridge Hexesoft BTicino (Manager, routing driver, cache, indice zone)                   |
+| `MQTT` | Broker MQTT: connessione, riconnessione, sottoscrizioni, pubblicazioni grezze                             |
+| `SCSB` | Bus SCS BTicino via gateway (F454/F452): frame OpenWebNet inviati, ACK/NACK, eventi in ingresso            |
+| `AUTH` | Handshake TCP + autenticazione con il gateway BTicino (fase iniziale della connessione)                    |
+| `THRM` | Termostato/dispositivo BTicino a muro (F459 o termostato standalone) — mittente di richieste ventola      |
+| `MITS` | Peer Mitsubishi Bridge (canale condiviso `hexesoft_gateway/*`)                                             |
+| `HOME` | Home Assistant (Auto-Discovery, pulizia dispositivi fantasma)                                              |
+
+### Esempi
+
+```
+[15:32:04.001] INFO   | CORE -> HEXE | Hexesoft Bridge Bticino - Avvio Service
+[15:32:04.312] INFO   | AUTH -> HEXE | Sessione attivata (Trusted/No Pwd)
+[15:32:04.500] DEBUG  | HEXE -> SCSB | Invio: *#4*31*0##
+[15:32:04.612] DEBUG  | SCSB -> HEXE | Ricevuto: ACK
+[15:32:04.612] DEBUG  | SCSB -> HEXE | [KNOWN] 2 sala: *#4*31*0*0252##
+[15:32:04.613] INFO   | HEXE -> MQTT | 2 sala aggiorna temp/state: 25.2
+[15:32:11.404] INFO   | MITS -> HEXE | Bridge Mitsubishi ONLINE: da ora il BT risponderà ai poll #17
+[15:32:15.220] INFO   | THRM -> MITS | zona 60: ventola 'alta' -> giro al VRF
+[14:29:41.010] INFO   | HEXE -> HOME | Pubblico/Confermo dispositivo: "1 scala nord"
+[14:29:44.955] INFO   | HOME -> HEXE | Trovato dispositivo fantasma: homeassistant/climate/.../config
+```
+
+Le righe con `[SOPPRESSO]` sono soppressioni volute (frame non instradati, comandi anti-spam identici all'ultimo, eventi retained applicati solo in memoria): compaiono solo in `debug` e aiutano a capire perché una certa azione non è stata eseguita.
 
 ## Requisiti
 
