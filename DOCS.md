@@ -21,7 +21,7 @@ Il bridge si collega al gateway fisico Bticino (es. F454) e:
 - **Tapparelle e tende**: comandi Apri/Chiudi/Stop, stato (in apertura / in chiusura / fermo) e **posizione** (aperta / chiusa / a metà).
 - **Termostati diretti**: gestione zona per zona **senza centrale 99 zone**. Caldo/Freddo per singolo termostato, setpoint, temperatura ambiente e **azione** (riscaldamento / raffrescamento / inattivo) per l'icona colorata in Home Assistant. Supporto opzionale alla **ventola fan-coil** (auto / bassa / media / alta).
 - **Pompe e valvole**: stato degli attuatori (relè) della termoregolazione, per sapere quando una valvola o la pompa stanno effettivamente lavorando.
-- **Monitoraggio energia**: interroga ciclicamente i moduli **F520** e riporta **potenza istantanea (W)** ed **energia totale (kWh)**, già pronta per le statistiche a lungo termine di Home Assistant.
+- **Monitoraggio energia**: interroga ciclicamente i moduli **F520** e per ogni contatore pubblica 4 sensori nativi — **Potenza (W)**, **Energia Totale (kWh)** cumulativa, **Energia Oggi (kWh)** azzerata a mezzanotte, **Energia Mese (kWh)** azzerata a fine mese — già pronti per il dashboard Energia di Home Assistant senza bisogno di template YAML.
 - **Pulsanti**: comandi impulsivi manuali (impulso da 0,5 s).
 - **Sensori binari**: contatti, PIR, ausiliari e allarmi, con **inversione logica** (per i contatti normalmente chiusi) e **device class** personalizzabile (icona in HA).
 - **Pulsante "Scansiona rete"**: un comando in Home Assistant per rileggere su richiesta lo stato di tutto l'impianto.
@@ -120,6 +120,22 @@ Termoregolazione (WHO 4), zona per zona.
 ### 4. Contatori Energia (`energy_meters`)
 Moduli di misura **F520**.
 - **`id`**: indirizzo fisico (1-255). L'indirizzo SCS è calcolato in automatico (es. ID `1` → `51`).
+
+Ogni contatore genera 4 entità in Home Assistant, raggruppate sotto lo stesso dispositivo:
+- **Potenza** (W, istantanea)
+- **Energia Totale** (kWh, totalizzatore cumulativo che cresce da sempre — DIM 51)
+- **Energia Oggi** (kWh, consumo del giorno corrente, si azzera a mezzanotte — DIM 54)
+- **Energia Mese** (kWh, consumo del mese corrente, si azzera a fine mese — DIM 53)
+
+I 3 sensori di energia hanno `state_class: total_increasing`: nel dashboard Energia di Home Assistant puoi usare direttamente **Energia Oggi** come fonte giornaliera, senza combinare valori con template manuali.
+
+#### Push automatico della potenza (sperimentale)
+Nella sezione `scan_settings` è possibile abilitare la ricezione **spontanea** dei valori di potenza dai contatori (comando OpenWebNet DIM 1200). In questa modalità il bridge non interroga più ciclicamente la potenza: è il contatore stesso a inviare l'aggiornamento quando il valore cambia, riducendo il traffico sul bus BTicino.
+
+- **`enable_power_push`** *(opzionale, default `false`)*: se `true`, abilita il push automatico.
+- **`power_push_interval_minutes`** *(opzionale, default `5`, range 1-255)*: minuti minimi fra due aggiornamenti spontanei consecutivi.
+
+> ⚠️ Non tutti i firmware F520 supportano il push automatico (le prime serie potrebbero rispondere `NACK`). Dopo averlo attivato, controlla il log: se compaiono righe `SCSB -> HEXE | DIM 1200 NACK` o il messaggio `Nessun contatore ha accettato il push potenza`, riporta `enable_power_push` a `false` e il polling attivo riparte normalmente.
 
 ### 5. Interruttori (`switches`)
 Attuatori ON/OFF generici.
