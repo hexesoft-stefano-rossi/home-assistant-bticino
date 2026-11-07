@@ -1,182 +1,557 @@
-# Hexesoft Bridge Bticino
+# Hexesoft Bridge BTicino — Documentazione / Documentation
 
-Ponte tra l'impianto domotico **BTicino MyHome (bus SCS / OpenWebNet)** e **Home Assistant**, tramite **MQTT**.
-Rende disponibili in Home Assistant — in modo automatico e bidirezionale — luci, tapparelle, termostati,
-contatori di energia, attuatori, pulsanti e sensori del tuo impianto Bticino.
+Manuale di configurazione dell'addon. Per una panoramica sulle funzionalità vedi **README.md**.
 
-## Cosa fa
+Configuration manual for the addon. For a feature overview see **README.md**.
 
-Il bridge si collega al gateway fisico Bticino (es. F454) e:
+---
 
-- **pubblica da solo** tutti i dispositivi che configuri: compaiono in Home Assistant senza scrivere una riga di YAML (MQTT Discovery);
-- **ascolta in tempo reale** ogni cambiamento sul bus (un tasto premuto, una tapparella che sale, una temperatura che varia) e aggiorna subito Home Assistant;
-- **traduce i comandi** dati da Home Assistant in pacchetti OpenWebNet e li invia sul bus (accendi una luce, imposta un setpoint, apri una tenda);
-- **si riconnette da solo** sia al gateway sia al broker MQTT in caso di caduta, e conserva gli stati anche dopo un riavvio.
+## 🇮🇹 Italiano
 
-## Funzionalità
+### 1. Prerequisiti
 
-- **Discovery automatica e pulizia**: all'avvio pubblica tutti i dispositivi configurati e **rimuove automaticamente** da Home Assistant quelli che hai tolto dal file di configurazione (niente entità fantasma).
-- **Controllo bidirezionale in tempo reale**: ogni evento del bus diventa uno stato MQTT; ogni comando da Home Assistant diventa un frame OpenWebNet.
-- **Luci e dimmer**: ON/OFF e regolazione di luminosità (scala 0-255 ↔ 1-10), con supporto ai comandi **temporizzati** (da 0,5 s a 15 min).
-- **Tapparelle e tende**: comandi Apri/Chiudi/Stop, stato (in apertura / in chiusura / fermo) e **posizione** (aperta / chiusa / a metà).
-- **Termostati diretti**: gestione zona per zona **senza centrale 99 zone**. Caldo/Freddo per singolo termostato, setpoint, temperatura ambiente e **azione** (riscaldamento / raffrescamento / inattivo) per l'icona colorata in Home Assistant. Supporto opzionale alla **ventola fan-coil** (auto / bassa / media / alta).
-- **Pompe e valvole**: stato degli attuatori (relè) della termoregolazione, per sapere quando una valvola o la pompa stanno effettivamente lavorando.
-- **Monitoraggio energia**: interroga ciclicamente i moduli **F520** e per ogni contatore pubblica 4 sensori nativi — **Potenza (W)**, **Energia Totale (kWh)** cumulativa, **Energia Oggi (kWh)** azzerata a mezzanotte, **Energia Mese (kWh)** azzerata a fine mese — già pronti per il dashboard Energia di Home Assistant senza bisogno di template YAML.
-- **Pulsanti**: comandi impulsivi manuali (impulso da 0,5 s).
-- **Sensori binari**: contatti, PIR, ausiliari e allarmi, con **inversione logica** (per i contatti normalmente chiusi) e **device class** personalizzabile (icona in HA).
-- **Pulsante "Scansiona rete"**: un comando in Home Assistant per rileggere su richiesta lo stato di tutto l'impianto.
-- **Diagnostica del gateway**: pubblica modello, indirizzo IP, subnet mask, MAC e versione firmware del web server Bticino.
-- **Stato del bridge**: entità Online/Offline (Last Will MQTT), così sai sempre se il ponte è attivo.
-- **Log leggibile**: console colorata per livello, con verbosità configurabile (`info`, `debug`, `warning`, `error`), con formato tabellare simmetrico (vedi *Formato del log*).
+Prima di avviare l'addon verifica di avere:
 
-### Integrazione VRF / gateway (avanzata)
-Per le zone configurate come **gateway**, il termostato a muro può pilotare un sistema esterno (es. un VRF Mitsubishi gestito da un bridge dedicato): il bridge inoltra la velocità della ventola scelta in Home Assistant sul canale MQTT condiviso e riaccende/spegne l'icona "in funzione" sul termostato fisico.
+- **Gateway BTicino OpenWebNet** (F454, F459, MyHOMEServer, web server) raggiungibile sulla rete locale sulla porta `20000`.
+- **IP statico** del gateway (consigliato: fissalo nel DHCP del router).
+- **Password OPEN** del gateway (se impostata) — la trovi nella configurazione del gateway stesso.
+- **Broker MQTT** già configurato in HA (es. addon ufficiale Mosquitto).
+- Credenziali di accesso al broker MQTT (username + password).
+- **Home Assistant** con integrazione **MQTT** attiva (Discovery abilitata — è il default).
 
-## Come funziona (in breve)
+### 2. Installazione
 
-Il bridge apre **due connessioni** verso il gateway Bticino (porta 20000):
+1. Vai in *Impostazioni → Addon → Repository di terze parti*.
+2. Aggiungi `https://github.com/hexesoft-stefano-rossi/home-assistant-bticino`.
+3. Installa **Hexesoft BTicino**.
+4. Apri la scheda *Configurazione* dell'addon e compila i parametri descritti sotto.
+5. Avvia l'addon e controlla la scheda *Log*.
 
-- una **sessione di ascolto** che intercetta tutto ciò che transita sul bus;
-- una **sessione comandi** che invia le richieste e ne attende la conferma (ACK), con riconnessione e keepalive automatici.
+### 3. Parametri di configurazione
 
-Se il gateway richiede la password OPEN, l'autenticazione (HMAC-SHA256) avviene in automatico. Ogni dispositivo è
-indicizzato per il proprio topic MQTT, così i messaggi vengono instradati istantaneamente. Gli stati sono pubblicati
-con flag *retain*: Home Assistant li ritrova anche dopo un riavvio.
+Tutta la configurazione sta nel file `config.yaml` (gestito dall'interfaccia Supervisor di HA).
 
-## Formato del log
+#### 3.1 Sezione `bticino`
 
-Ogni riga di log ha una struttura tabellare fissa così da restare **incolonnata** anche in sessioni lunghe:
+Connessione al gateway.
+
+| Parametro | Tipo | Obbligatorio | Descrizione |
+|---|---|---|---|
+| `host` | stringa | ✅ | IP del gateway (es. `192.168.1.50`) |
+| `port` | intero | ✅ | Porta OpenWebNet (default `20000`) |
+| `password` | stringa | se gateway protetto | Password OPEN. Vuota se il gateway è aperto |
+
+#### 3.2 Sezione `mqtt`
+
+Connessione al broker.
+
+| Parametro | Tipo | Obbligatorio | Descrizione |
+|---|---|---|---|
+| `host` | stringa | ✅ | Host del broker (default `core-mosquitto` per l'addon ufficiale) |
+| `port` | intero | ✅ | Porta broker (default `1883`) |
+| `username` | stringa | ⚠️ | Utente MQTT |
+| `password` | stringa | ⚠️ | Password MQTT |
+| `base_topic` | stringa | ✅ | Prefisso topic MQTT del bridge (default `bticino_bridge`) |
+| `discovery_prefix` | stringa | ✅ | Prefisso Discovery di HA (default `homeassistant`) |
+
+#### 3.3 Sezione `scan_settings`
+
+Regole di scansione e polling.
+
+| Parametro | Tipo | Default | Descrizione |
+|---|---|---|---|
+| `skiplight` | bool | `false` | Non scansionare le luci all'avvio |
+| `skipshutter` | bool | `false` | Non scansionare le tapparelle all'avvio |
+| `skipthermostat` | bool | `false` | Non scansionare i termostati all'avvio |
+| `disableenergymonitor` | bool | `false` | Disattiva completamente il monitor energia |
+| `energypollingintervalseconds` | 30-3600 | `60` | Intervallo polling dei contatori energia (secondi) |
+| `enable_power_push` | bool | `false` | Attiva il push spontaneo della potenza (DIM 1200) sui contatori F520 |
+| `power_push_interval_minutes` | 1-255 | `5` | Minuti minimi fra due frame potenza spontanei |
+
+> ⚠️ **`enable_power_push`** è **sperimentale**: non tutti i firmware F520 lo supportano.
+> Dopo l'attivazione controlla il log: se vedi `DIM 1200 NACK` o `Nessun contatore ha accettato il push potenza`, riporta a `false` e il polling normale riprende.
+
+#### 3.4 Sezione `system_settings`
+
+| Parametro | Valori ammessi | Default | Descrizione |
+|---|---|---|---|
+| `log_level` | `info`, `debug`, `warning`, `error` | `info` | Verbosità del log |
+
+### 4. Categorie di dispositivi
+
+Due parametri sono comuni alla maggior parte dei dispositivi:
+
+- **`name`**: nome mostrato in HA (obbligatorio).
+- **`bus`**: `0` per il bus locale; `1-15` per i bus remoti via interfacce F422.
+- **`model`** *(opzionale)*: modello hardware mostrato in HA solo a scopo informativo (es. `"F411"`).
+
+> I termostati usano `zone` al posto di `bus`.
+
+#### 4.1 Luci — `lights`
+
+Relè ON/OFF e dimmer.
+
+| Campo | Tipo | Descrizione |
+|---|---|---|
+| `a` | 0-15 | Ambiente |
+| `pl` | 0-15 | Punto luce |
+| `timer` | enum | Accensione temporizzata, opzionale: `none`, `0.5s`, `2s`, `30s`, `1m`, `2m`, `3m`, `4m`, `5m`, `10m`, `15m` |
+
+#### 4.2 Tapparelle e tende — `shutters`
+
+| Campo | Tipo | Descrizione |
+|---|---|---|
+| `a` | 0-15 | Ambiente |
+| `pl` | 0-15 | Punto luce |
+
+#### 4.3 Termostati — `thermostats`
+
+| Campo | Tipo | Descrizione |
+|---|---|---|
+| `zone` | 0-99 | Numero della zona termica |
+| `canHeat` | bool | Abilita riscaldamento |
+| `canCool` | bool | Abilita raffrescamento |
+| `manageFan` | bool | Abilita il controllo della ventola fan-coil (`auto`, `low`, `medium`, `high`) |
+| `startup_preset` | `comfort`/`economy` | Preset applicato all'avvio |
+
+#### 4.4 Contatori energia — `energy_meters`
+
+Moduli di misura **F520**.
+
+| Campo | Tipo | Descrizione |
+|---|---|---|
+| `id` | intero | Indirizzo fisico del contatore (1-255). L'indirizzo SCS è calcolato in automatico (es. ID `1` → `51`) |
+
+**Entità generate automaticamente per ciascun contatore:**
+
+| Entità | Unità | DIM | Note |
+|---|---|---|---|
+| Potenza istantanea | W | 113 | Pollata ciclicamente (o ricevuta in push se abilitato) |
+| Energia Totale | kWh | 51 | Totalizzatore cumulativo |
+| Energia Oggi | kWh | 54 | Si azzera a mezzanotte |
+| Energia Mese | kWh | 53 | Si azzera a fine mese |
+
+I 3 sensori di energia hanno `state_class: total_increasing`: puoi usare direttamente **Energia Oggi** come fonte giornaliera nel Dashboard Energia di HA, senza template.
+
+#### 4.5 Interruttori — `switches`
+
+Attuatori ON/OFF generici.
+
+| Campo | Tipo | Descrizione |
+|---|---|---|
+| `a` | 0-15 | Ambiente |
+| `pl` | 0-15 | Punto luce |
+| `timer` | enum | Stessi valori delle luci |
+
+#### 4.6 Pulsanti — `buttons`
+
+Comandi impulsivi manuali, impulso fisso 0,5 s (WHAT 18).
+
+| Campo | Tipo | Descrizione |
+|---|---|---|
+| `a` | 0-15 | Ambiente |
+| `pl` | 0-15 | Punto luce |
+
+#### 4.7 Relè termici — `relays`
+
+Monitoraggio degli attuatori di pompe e valvole della termoregolazione.
+
+| Campo | Tipo | Descrizione |
+|---|---|---|
+| `bus` | 0-15 | Zona della centrale termica di appartenenza |
+| `id` | intero | Identificativo del relè nella zona |
+
+#### 4.8 Sensori binari — `binary_sensors`
+
+Contatti, PIR, ausiliari, allarmi (sola lettura).
+
+| Campo | Tipo | Descrizione |
+|---|---|---|
+| `a` | 0-15 | Ambiente |
+| `pl` | 0-15 | Punto luce |
+| `invert` | bool | Inverte la logica (utile per contatti normalmente chiusi) |
+| `device_class` | enum | Icona/categoria in HA: `none`, `door`, `window`, `motion`, `smoke`, `moisture`, `opening`, `presence`, `problem`, `power` |
+
+### 5. Esempio completo di configurazione
+
+```yaml
+bticino:
+  host: "192.168.1.50"
+  port: 20000
+  password: "12345"
+
+mqtt:
+  host: "core-mosquitto"
+  port: 1883
+  username: "mqttuser"
+  password: "mqttpass"
+  base_topic: "bticino_bridge"
+  discovery_prefix: "homeassistant"
+
+scan_settings:
+  skiplight: false
+  skipshutter: false
+  skipthermostat: false
+  disableenergymonitor: false
+  energypollingintervalseconds: 60
+
+system_settings:
+  log_level: "info"
+
+lights:
+  devices:
+    - name: "Sala faretti"
+      bus: 0
+      a: 1
+      pl: 1
+      model: "F411"
+    - name: "Scala segnapasso"
+      bus: 0
+      a: 2
+      pl: 3
+      timer: "5m"
+
+shutters:
+  devices:
+    - name: "Sala tenda"
+      bus: 0
+      a: 1
+      pl: 5
+
+thermostats:
+  devices:
+    - name: "Sala"
+      zone: 1
+      canHeat: true
+      canCool: true
+      manageFan: false
+
+energy_meters:
+  devices:
+    - name: "Generale"
+      bus: 0
+      id: 1
+      model: "F520"
+
+binary_sensors:
+  devices:
+    - name: "PIR ingresso"
+      bus: 0
+      a: 1
+      pl: 1
+      invert: false
+      device_class: motion
+```
+
+### 6. Il log
+
+Ogni riga ha una struttura tabellare fissa, incolonnata:
 
 ```
 [HH:mm:ss.fff]  LIVELLO | MITT -> DEST | messaggio
 ```
 
-- **`MITT`** è chi genera l'informazione, **`DEST`** è chi la riceve/consuma.
-- Entrambe le sigle sono **sempre di 4 caratteri**, così la freccia `->` e i due `|` cadono nelle stesse colonne per tutta la giornata.
+- **`MITT`** = chi genera l'informazione, **`DEST`** = chi la riceve/consuma.
+- Entrambe le sigle sono **sempre di 4 caratteri**.
 
-### Sigle usate
+#### Sigle usate
 
-| Sigla  | Cosa rappresenta                                                                                          |
-|--------|-----------------------------------------------------------------------------------------------------------|
-| `CORE` | Sistema/lifecycle: avvio del servizio, arresto pulito, configurazione non valida, host .NET                |
-| `HEXE` | Logica interna del Bridge Hexesoft BTicino (Manager, routing driver, cache, indice zone)                   |
-| `MQTT` | Broker MQTT: connessione, riconnessione, sottoscrizioni, pubblicazioni grezze                             |
-| `SCSB` | Bus SCS BTicino via gateway (F454/F452): frame OpenWebNet inviati, ACK/NACK, eventi in ingresso            |
-| `AUTH` | Handshake TCP + autenticazione con il gateway BTicino (fase iniziale della connessione)                    |
-| `THRM` | Termostato/dispositivo BTicino a muro (F459 o termostato standalone) — mittente di richieste ventola      |
-| `MITS` | Peer Mitsubishi Bridge (canale condiviso `hexesoft_gateway/*`)                                             |
-| `HOME` | Home Assistant (Auto-Discovery, pulizia dispositivi fantasma)                                              |
+| Sigla | Significato |
+|---|---|
+| `CORE` | Sistema/lifecycle: avvio, arresto, configurazione, host .NET |
+| `HEXE` | Logica interna del Bridge (Manager, routing, cache, indice zone) |
+| `MQTT` | Broker MQTT: connessione, sottoscrizioni, pubblicazioni |
+| `SCSB` | Bus SCS: frame OpenWebNet inviati, ACK/NACK, eventi in ingresso |
+| `AUTH` | Handshake e autenticazione col gateway |
+| `THRM` | Termostato/dispositivo BTicino a muro |
+| `MITS` | Peer Mitsubishi Bridge (canale condiviso `hexesoft_gateway/*`) |
+| `HOME` | Home Assistant (Discovery, pulizia dispositivi fantasma) |
 
-### Esempi
+Le righe `[SOPPRESSO]` sono volute: frame non instradati, anti-rimbalzo, eventi retained applicati solo in memoria. Compaiono in `debug` per capire perché una certa azione non è stata eseguita — non sono errori.
 
-```
-[15:32:04.001] INFO   | CORE -> HEXE | Hexesoft Bridge Bticino - Avvio Service
-[15:32:04.312] INFO   | AUTH -> HEXE | Sessione attivata (Trusted/No Pwd)
-[15:32:04.500] DEBUG  | HEXE -> SCSB | Invio: *#4*31*0##
-[15:32:04.612] DEBUG  | SCSB -> HEXE | Ricevuto: ACK
-[15:32:04.612] DEBUG  | SCSB -> HEXE | [KNOWN] 2 sala: *#4*31*0*0252##
-[15:32:04.613] INFO   | HEXE -> MQTT | 2 sala aggiorna temp/state: 25.2
-[15:32:11.404] INFO   | MITS -> HEXE | Bridge Mitsubishi ONLINE: da ora il BT risponderà ai poll #17
-[15:32:15.220] INFO   | THRM -> MITS | zona 60: ventola 'alta' -> giro al VRF
-[14:29:41.010] INFO   | HEXE -> HOME | Pubblico/Confermo dispositivo: "1 scala nord"
-[14:29:44.955] INFO   | HOME -> HEXE | Trovato dispositivo fantasma: homeassistant/climate/.../config
-```
+### 7. Troubleshooting
 
-Le righe con `[SOPPRESSO]` sono soppressioni volute (frame non instradati, comandi anti-spam identici all'ultimo, eventi retained applicati solo in memoria): compaiono solo in `debug` e aiutano a capire perché una certa azione non è stata eseguita.
-
-## Requisiti
-
-- Un **gateway BTicino** con server OpenWebNet (es. **F454**, MyHOMEServer, web server) raggiungibile in rete sulla **porta 20000**.
-- La **password OPEN** del gateway (se ne hai impostata una).
-- Un **broker MQTT** (es. Mosquitto) raggiungibile dal bridge e da Home Assistant.
-- **Home Assistant** con l'integrazione **MQTT** attiva (la discovery è abilitata di default).
+| Problema | Causa probabile | Verifica |
+|---|---|---|
+| L'addon parte, poi si ferma | Config mancante o errata | Controlla il log: `Manca l'indirizzo IP del Gateway` o `Manca l'indirizzo IP del broker MQTT` |
+| Dispositivi non compaiono in HA | MQTT Discovery disattivata | *Impostazioni → Integrazioni → MQTT → Configura → Discovery on* |
+| `AUTH -> HEXE | Password errata` | Password OPEN sbagliata | Controlla la password nella config del gateway |
+| `Contatori NACK su DIM 1200` | Firmware F520 vecchio | Imposta `enable_power_push: false` |
+| Entità "fantasma" dopo rimozione | Retained MQTT non pulito | Il bridge le rimuove da solo al riavvio; se non basta, pulisci il topic da MQTT Explorer |
+| Lo stato del termostato non si aggiorna | `canHeat`/`canCool` non abilitati | Attiva quelli che usa l'impianto |
 
 ---
 
-## Guida alla Configurazione
+## 🇬🇧 English
 
-Ogni dispositivo va inserito nella categoria corretta del file di configurazione. Due parametri sono comuni alla maggior parte dei dispositivi:
+### 1. Prerequisites
 
-- **`bus`**: identificativo del bus — `0` per il bus locale, `1`-`15` per i bus remoti tramite interfacce F422. *(I termostati usano `zone` al posto di `bus`.)*
-- **`model`**: modello hardware (es. `"F411"`, `"H4691"`, `"F520"`), solo a scopo informativo in Home Assistant.
+Before starting the addon, make sure you have:
 
-### 1. Luci (`lights`)
-Relè ON/OFF e dimmer.
-- **`a`**: ambiente (0-9).
-- **`pl`**: punto luce (1-15).
-- **`timer`** *(opzionale)*: accensione temporizzata. Valori: `none`, `0.5s`, `2s`, `30s`, `1m`, `2m`, `3m`, `4m`, `5m`, `10m`, `15m`.
+- A **BTicino OpenWebNet gateway** (F454, F459, MyHOMEServer, web server) reachable on the local network on port `20000`.
+- A **static IP** for the gateway (recommended: pin it in your router DHCP).
+- The **OPEN password** of the gateway (if set) — find it in the gateway's own configuration.
+- An **MQTT broker** already configured in HA (e.g. the official Mosquitto addon).
+- MQTT broker credentials (username + password).
+- **Home Assistant** with the **MQTT** integration enabled (Discovery on — default).
 
-### 2. Tapparelle e Tende (`shutters`)
-Automazioni (WHO 2) con stato e posizione.
-- **`a`**: ambiente.
-- **`pl`**: punto luce.
+### 2. Installation
 
-### 3. Termostati (`thermostats`)
-Termoregolazione (WHO 4), zona per zona.
-- **`zone`**: numero della zona termica (1-99).
-- **`canHeat`** / **`canCool`**: abilita riscaldamento e/o raffrescamento.
-- **`manageFan`**: se `true`, abilita il controllo della ventola fan-coil (`auto`, `low`, `medium`, `high`).
+1. Go to *Settings → Add-ons → Third-party repositories*.
+2. Add `https://github.com/hexesoft-stefano-rossi/home-assistant-bticino`.
+3. Install **Hexesoft BTicino**.
+4. Open the addon *Configuration* tab and fill in the parameters below.
+5. Start the addon and watch the *Log* tab.
 
-### 4. Contatori Energia (`energy_meters`)
-Moduli di misura **F520**.
-- **`id`**: indirizzo fisico (1-255). L'indirizzo SCS è calcolato in automatico (es. ID `1` → `51`).
+### 3. Configuration parameters
 
-Ogni contatore genera 4 entità in Home Assistant, raggruppate sotto lo stesso dispositivo:
-- **Potenza** (W, istantanea)
-- **Energia Totale** (kWh, totalizzatore cumulativo che cresce da sempre — DIM 51)
-- **Energia Oggi** (kWh, consumo del giorno corrente, si azzera a mezzanotte — DIM 54)
-- **Energia Mese** (kWh, consumo del mese corrente, si azzera a fine mese — DIM 53)
+The whole configuration lives in `config.yaml` (edited through the Supervisor UI).
 
-I 3 sensori di energia hanno `state_class: total_increasing`: nel dashboard Energia di Home Assistant puoi usare direttamente **Energia Oggi** come fonte giornaliera, senza combinare valori con template manuali.
+#### 3.1 `bticino` section
 
-#### Push automatico della potenza (sperimentale)
-Nella sezione `scan_settings` è possibile abilitare la ricezione **spontanea** dei valori di potenza dai contatori (comando OpenWebNet DIM 1200). In questa modalità il bridge non interroga più ciclicamente la potenza: è il contatore stesso a inviare l'aggiornamento quando il valore cambia, riducendo il traffico sul bus BTicino.
+Gateway connection.
 
-- **`enable_power_push`** *(opzionale, default `false`)*: se `true`, abilita il push automatico.
-- **`power_push_interval_minutes`** *(opzionale, default `5`, range 1-255)*: minuti minimi fra due aggiornamenti spontanei consecutivi.
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `host` | string | ✅ | Gateway IP (e.g. `192.168.1.50`) |
+| `port` | int | ✅ | OpenWebNet port (default `20000`) |
+| `password` | string | if gateway is protected | OPEN password. Empty if gateway is open |
 
-> ⚠️ Non tutti i firmware F520 supportano il push automatico (le prime serie potrebbero rispondere `NACK`). Dopo averlo attivato, controlla il log: se compaiono righe `SCSB -> HEXE | DIM 1200 NACK` o il messaggio `Nessun contatore ha accettato il push potenza`, riporta `enable_power_push` a `false` e il polling attivo riparte normalmente.
+#### 3.2 `mqtt` section
 
-### 5. Interruttori (`switches`)
-Attuatori ON/OFF generici.
-- **`a`** / **`pl`**: ambiente e punto luce.
-- **`timer`** *(opzionale)*: stessi valori delle luci (`0.5s` … `15m`).
+Broker connection.
 
-### 6. Pulsanti (`buttons`)
-Comandi impulsivi manuali.
-- **`a`** / **`pl`**: indirizzo fisico.
-- Invia un impulso temporizzato di 0,5 s (WHAT 18).
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `host` | string | ✅ | Broker host (default `core-mosquitto` for the official addon) |
+| `port` | int | ✅ | Broker port (default `1883`) |
+| `username` | string | ⚠️ | MQTT username |
+| `password` | string | ⚠️ | MQTT password |
+| `base_topic` | string | ✅ | Bridge MQTT topic prefix (default `bticino_bridge`) |
+| `discovery_prefix` | string | ✅ | HA Discovery prefix (default `homeassistant`) |
 
-### 7. Relè Termici (`relays`)
-Monitoraggio degli attuatori di pompe e valvole della termoregolazione.
-- **`bus`**: zona della centrale termica di appartenenza.
-- **`id`**: identificativo del relè nella zona.
+#### 3.3 `scan_settings` section
 
-### 8. Sensori Binari (`binary_sensors`)
-Contatti, PIR, ausiliari e allarmi (sola lettura).
-- **`a`** / **`pl`**: indirizzo fisico.
-- **`invert`**: se `true`, inverte la logica (utile per i contatti normalmente chiusi).
-- **`device_class`**: icona/categoria in Home Assistant. Valori: `none`, `door`, `window`, `motion`, `smoke`, `moisture`, `opening`, `presence`, `problem`, `power`.
+Scan and polling rules.
 
-### Esempio di configurazione
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `skiplight` | bool | `false` | Skip lights scan at startup |
+| `skipshutter` | bool | `false` | Skip shutters scan at startup |
+| `skipthermostat` | bool | `false` | Skip thermostats scan at startup |
+| `disableenergymonitor` | bool | `false` | Fully disable the energy monitor |
+| `energypollingintervalseconds` | 30-3600 | `60` | Energy meter polling interval (seconds) |
+| `enable_power_push` | bool | `false` | Enable spontaneous power push (DIM 1200) on F520 meters |
+| `power_push_interval_minutes` | 1-255 | `5` | Minimum minutes between two spontaneous power frames |
 
-```json
-{
-  "lights": {
-    "devices": [
-      { "name": "Sala faretti", "bus": 0, "a": 1, "pl": 1, "model": "F411" },
-      { "name": "Scala segnapasso", "bus": 0, "a": 2, "pl": 3, "timer": "5m" }
-    ]
-  },
-  "thermostats": {
-    "devices": [
-      { "name": "Sala", "zone": 1, "canHeat": true, "canCool": true, "manageFan": false }
-    ]
-  },
-  "energy_meters": {
-    "devices": [
-      { "name": "Generale", "bus": 0, "id": 1, "model": "F520" }
-    ]
-  }
-}
+> ⚠️ **`enable_power_push`** is **experimental**: not all F520 firmware revisions support it.
+> After enabling, watch the log: if you see `DIM 1200 NACK` or `No meter accepted the power push`, revert to `false` and normal polling resumes.
+
+#### 3.4 `system_settings` section
+
+| Parameter | Allowed values | Default | Description |
+|---|---|---|---|
+| `log_level` | `info`, `debug`, `warning`, `error` | `info` | Log verbosity |
+
+### 4. Device categories
+
+Two fields are common to most devices:
+
+- **`name`**: label shown in HA (mandatory).
+- **`bus`**: `0` for the local bus; `1-15` for remote buses via F422 interfaces.
+- **`model`** *(optional)*: hardware model shown in HA for reference (e.g. `"F411"`).
+
+> Thermostats use `zone` instead of `bus`.
+
+#### 4.1 Lights — `lights`
+
+ON/OFF relays and dimmers.
+
+| Field | Type | Description |
+|---|---|---|
+| `a` | 0-15 | Environment |
+| `pl` | 0-15 | Light point |
+| `timer` | enum | Timed switch-on, optional: `none`, `0.5s`, `2s`, `30s`, `1m`, `2m`, `3m`, `4m`, `5m`, `10m`, `15m` |
+
+#### 4.2 Shutters & blinds — `shutters`
+
+| Field | Type | Description |
+|---|---|---|
+| `a` | 0-15 | Environment |
+| `pl` | 0-15 | Light point |
+
+#### 4.3 Thermostats — `thermostats`
+
+| Field | Type | Description |
+|---|---|---|
+| `zone` | 0-99 | Thermal zone number |
+| `canHeat` | bool | Enable heating |
+| `canCool` | bool | Enable cooling |
+| `manageFan` | bool | Enable fan-coil control (`auto`, `low`, `medium`, `high`) |
+| `startup_preset` | `comfort`/`economy` | Preset applied at startup |
+
+#### 4.4 Energy meters — `energy_meters`
+
+**F520** metering modules.
+
+| Field | Type | Description |
+|---|---|---|
+| `id` | int | Physical meter address (1-255). SCS address is computed automatically (e.g. ID `1` → `51`) |
+
+**Entities created automatically for each meter:**
+
+| Entity | Unit | DIM | Notes |
+|---|---|---|---|
+| Instant power | W | 113 | Polled cyclically (or received as push if enabled) |
+| Total Energy | kWh | 51 | Cumulative totalizer |
+| Energy Today | kWh | 54 | Resets at midnight |
+| Energy Month | kWh | 53 | Resets at end of month |
+
+All 3 energy sensors have `state_class: total_increasing`: you can use **Energy Today** directly as a daily source in HA's Energy Dashboard, no templates required.
+
+#### 4.5 Switches — `switches`
+
+Generic ON/OFF actuators.
+
+| Field | Type | Description |
+|---|---|---|
+| `a` | 0-15 | Environment |
+| `pl` | 0-15 | Light point |
+| `timer` | enum | Same values as lights |
+
+#### 4.6 Buttons — `buttons`
+
+Momentary pulse commands, fixed 0.5 s pulse (WHAT 18).
+
+| Field | Type | Description |
+|---|---|---|
+| `a` | 0-15 | Environment |
+| `pl` | 0-15 | Light point |
+
+#### 4.7 Heating relays — `relays`
+
+State monitoring of pump and valve actuators of the heating control system.
+
+| Field | Type | Description |
+|---|---|---|
+| `bus` | 0-15 | Thermal zone the relay belongs to |
+| `id` | int | Relay identifier within the zone |
+
+#### 4.8 Binary sensors — `binary_sensors`
+
+Contacts, PIRs, auxiliaries, alarms (read-only).
+
+| Field | Type | Description |
+|---|---|---|
+| `a` | 0-15 | Environment |
+| `pl` | 0-15 | Light point |
+| `invert` | bool | Invert logic (useful for normally-closed contacts) |
+| `device_class` | enum | Icon/category in HA: `none`, `door`, `window`, `motion`, `smoke`, `moisture`, `opening`, `presence`, `problem`, `power` |
+
+### 5. Full configuration example
+
+```yaml
+bticino:
+  host: "192.168.1.50"
+  port: 20000
+  password: "12345"
+
+mqtt:
+  host: "core-mosquitto"
+  port: 1883
+  username: "mqttuser"
+  password: "mqttpass"
+  base_topic: "bticino_bridge"
+  discovery_prefix: "homeassistant"
+
+scan_settings:
+  skiplight: false
+  skipshutter: false
+  skipthermostat: false
+  disableenergymonitor: false
+  energypollingintervalseconds: 60
+
+system_settings:
+  log_level: "info"
+
+lights:
+  devices:
+    - name: "Living room spots"
+      bus: 0
+      a: 1
+      pl: 1
+      model: "F411"
+    - name: "Staircase step-light"
+      bus: 0
+      a: 2
+      pl: 3
+      timer: "5m"
+
+shutters:
+  devices:
+    - name: "Living room curtain"
+      bus: 0
+      a: 1
+      pl: 5
+
+thermostats:
+  devices:
+    - name: "Living room"
+      zone: 1
+      canHeat: true
+      canCool: true
+      manageFan: false
+
+energy_meters:
+  devices:
+    - name: "Main"
+      bus: 0
+      id: 1
+      model: "F520"
+
+binary_sensors:
+  devices:
+    - name: "Entrance PIR"
+      bus: 0
+      a: 1
+      pl: 1
+      invert: false
+      device_class: motion
 ```
+
+### 6. The log
+
+Every line has a fixed tabular structure:
+
+```
+[HH:mm:ss.fff]  LEVEL | SRC  -> DEST | message
+```
+
+- **`SRC`** = producer of the information, **`DEST`** = consumer.
+- Both tags are **always 4 characters**.
+
+#### Tags used
+
+| Tag | Meaning |
+|---|---|
+| `CORE` | System/lifecycle: startup, shutdown, configuration, .NET host |
+| `HEXE` | Internal bridge logic (Manager, routing, cache, zone index) |
+| `MQTT` | MQTT broker: connection, subscriptions, publications |
+| `SCSB` | SCS bus: OpenWebNet frames sent, ACK/NACK, incoming events |
+| `AUTH` | Handshake and authentication with the gateway |
+| `THRM` | BTicino wall thermostat/device |
+| `MITS` | Mitsubishi Bridge peer (shared `hexesoft_gateway/*` channel) |
+| `HOME` | Home Assistant (Discovery, ghost-device cleanup) |
+
+Lines marked `[SOPPRESSO]` (`suppressed`) are intentional: unrouted frames, anti-bounce dedup, retained events applied only in memory. They show only at `debug` level and help understanding why a given action was not performed — they are not errors.
+
+### 7. Troubleshooting
+
+| Problem | Likely cause | What to check |
+|---|---|---|
+| Addon starts then stops | Missing or wrong config | Check the log: `Missing Gateway IP` or `Missing MQTT broker IP` |
+| Devices don't appear in HA | MQTT Discovery disabled | *Settings → Integrations → MQTT → Configure → Discovery on* |
+| `AUTH -> HEXE | Wrong password` | Wrong OPEN password | Check the password in the gateway configuration |
+| `Meters NACK on DIM 1200` | Old F520 firmware | Set `enable_power_push: false` |
+| "Ghost" entities after removal | Retained MQTT not cleaned | The bridge cleans them at restart; if still there, purge the topic with MQTT Explorer |
+| Thermostat state doesn't update | `canHeat`/`canCool` not enabled | Enable the ones your installation uses |
