@@ -63,18 +63,58 @@ sensori manualmente: tutto è **MQTT Discovery** standard.
 - Un **broker MQTT** (es. Mosquitto addon di HA).
 - **Home Assistant** con integrazione **MQTT** attiva.
 
-### Installazione
+### Installazione in Home Assistant (passo-passo)
 
-Repository addon per Home Assistant Supervisor:
-```
-https://github.com/hexesoft-stefano-rossi/home-assistant-bticino
-```
+L'addon non è nello store ufficiale: va aggiunto come **repository di terze parti**. È un'operazione che si fa una volta sola.
 
-1. Aggiungi il repository in *Impostazioni → Addon → Repository di terze parti*.
-2. Installa "Hexesoft BTicino".
-3. Configura IP del gateway, password OPEN, broker MQTT e la lista dei dispositivi
-   (vedi **DOCS.md** per l'elenco completo dei parametri).
-4. Avvia l'addon: i dispositivi compaiono in HA entro pochi secondi.
+**1. Apri la sezione Addon**
+
+- Dal menu laterale di HA clicca **Impostazioni** (icona ingranaggio).
+- Clicca **Installa app** (in alcune versioni appare come *Componenti aggiuntivi* o *Add-ons*).
+
+**2. Aggiungi il repository Hexesoft**
+
+- In alto a destra, clicca il menu con i **tre puntini ⋮**.
+- Dal menu scegli **Archivi digitali** (o *Repositories*).
+- In basso a destra clicca il bottone **AGGIUNGI**.
+- Nel campo **URL** incolla il link del repository:
+  - Apri in un'altra scheda del browser `https://github.com/hexesoft-stefano-rossi/home-assistant-bticino`
+  - Clicca sul bottone verde **Code** in alto a destra
+  - Nella tab **HTTPS** copia l'URL mostrato (clicca sull'icona 📋 a destra)
+  - Torna in HA e incolla l'URL nel campo
+- Clicca **AGGIUNGI**, attendi la conferma, poi **CHIUDI**.
+
+**3. Installa l'addon**
+
+- Nello Store, scorri verso il basso: compare una nuova sezione **"Hexesoft BTicino Addons"**.
+- Clicca sulla card **Hexesoft BTicino**.
+- Clicca **INSTALLA** e attendi il download (può richiedere qualche minuto la prima volta).
+
+**4. Configura l'addon**
+
+- Appena installato, apri la scheda **Configurazione**.
+- Inserisci:
+  - **IP e porta del gateway BTicino** (`host`, `port`)
+  - **Password OPEN** del gateway (se impostata)
+  - **Broker MQTT** (host, porta, utente, password)
+  - L'elenco dei **dispositivi** suddiviso per categoria (luci, tapparelle, termostati, contatori, ecc.)
+- Clicca **SALVA**.
+- Per l'elenco completo dei parametri e un esempio completo, vedi **DOCS.md**.
+
+**5. Avvia l'addon**
+
+- Torna alla scheda **Info**.
+- (Consigliato) Attiva **Watchdog** e **Avvio al boot** — così l'addon riparte da solo in caso di riavvio o blocco.
+- Clicca **AVVIA**.
+- Apri la scheda **Log** e verifica che compaia la riga `Hexesoft Bridge Bticino - Avvio Service` seguita dalla connessione al gateway e al broker MQTT.
+
+**6. Verifica in Home Assistant**
+
+Entro pochi secondi i dispositivi compaiono automaticamente in *Impostazioni → Dispositivi e servizi → MQTT*, raggruppati per nome. Niente da aggiungere a mano.
+
+### Aggiornamenti futuri
+
+Quando esce una nuova versione, HA la mostra nella pagina dell'addon con un bottone **AGGIORNA**. Nessuna riconfigurazione necessaria: parametri e dispositivi restano invariati.
 
 ### Licenza
 
@@ -148,18 +188,58 @@ everything is standard **MQTT Discovery**.
 - An **MQTT broker** (e.g. HA Mosquitto addon).
 - **Home Assistant** with the **MQTT** integration enabled.
 
-### Installation
+### Installation in Home Assistant (step-by-step)
 
-Home Assistant Supervisor addon repository:
-```
-https://github.com/hexesoft-stefano-rossi/home-assistant-bticino
-```
+The addon is not in the official store: it must be added as a **third-party repository**. This is a one-time operation.
 
-1. Add the repository under *Settings → Add-ons → Third-party repositories*.
-2. Install "Hexesoft BTicino".
-3. Configure gateway IP, OPEN password, MQTT broker and the device list
-   (see **DOCS.md** for the full parameter list).
-4. Start the addon: devices appear in HA within seconds.
+**1. Open the Add-ons section**
+
+- From the HA sidebar click **Settings** (gear icon).
+- Click **Add-ons** (some versions show *Install app* / *Components*).
+
+**2. Add the Hexesoft repository**
+
+- In the top-right corner click the **three-dot menu ⋮**.
+- Select **Repositories**.
+- In the bottom-right corner click the **ADD** button.
+- In the **URL** field paste the repository link:
+  - Open in another browser tab `https://github.com/hexesoft-stefano-rossi/home-assistant-bticino`
+  - Click the green **Code** button at the top right
+  - In the **HTTPS** tab copy the URL shown (click the 📋 icon on the right)
+  - Go back to HA and paste the URL in the field
+- Click **ADD**, wait for the confirmation, then **CLOSE**.
+
+**3. Install the addon**
+
+- Scroll down in the Store: a new section **"Hexesoft BTicino Addons"** appears.
+- Click the **Hexesoft BTicino** card.
+- Click **INSTALL** and wait for the download (it may take a few minutes the first time).
+
+**4. Configure the addon**
+
+- Once installed, open the **Configuration** tab.
+- Fill in:
+  - **BTicino gateway IP and port** (`host`, `port`)
+  - **Gateway OPEN password** (if set)
+  - **MQTT broker** (host, port, username, password)
+  - The **device list** split by category (lights, shutters, thermostats, meters, etc.)
+- Click **SAVE**.
+- For the full parameter list and a complete example, see **DOCS.md**.
+
+**5. Start the addon**
+
+- Go back to the **Info** tab.
+- (Recommended) Enable **Watchdog** and **Start on boot** — so the addon restarts automatically on reboot or crash.
+- Click **START**.
+- Open the **Log** tab and check for the line `Hexesoft Bridge Bticino - Avvio Service` followed by the connection to the gateway and the MQTT broker.
+
+**6. Verify in Home Assistant**
+
+Within a few seconds devices appear automatically under *Settings → Devices & Services → MQTT*, grouped by name. Nothing to add manually.
+
+### Future updates
+
+When a new version is released, HA shows it on the addon page with an **UPDATE** button. No reconfiguration needed: parameters and device list stay as they are.
 
 ### License
 

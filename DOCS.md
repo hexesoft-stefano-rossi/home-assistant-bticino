@@ -21,11 +21,63 @@ Prima di avviare l'addon verifica di avere:
 
 ### 2. Installazione
 
-1. Vai in *Impostazioni → Addon → Repository di terze parti*.
-2. Aggiungi `https://github.com/hexesoft-stefano-rossi/home-assistant-bticino`.
-3. Installa **Hexesoft BTicino**.
-4. Apri la scheda *Configurazione* dell'addon e compila i parametri descritti sotto.
-5. Avvia l'addon e controlla la scheda *Log*.
+L'addon si installa tramite **Supervisor**, aggiungendo un repository di terze parti. L'intera operazione dura meno di 5 minuti.
+
+**Passo 1 — Apri la sezione Addon**
+
+1. Clicca sull'icona **Impostazioni** (ingranaggio nel menu laterale di HA).
+2. Clicca **Installa app** (in alcune versioni: *Componenti aggiuntivi* / *Add-ons*).
+
+**Passo 2 — Aggiungi il repository**
+
+1. In alto a destra, clicca il menu a **tre puntini ⋮**.
+2. Dal menu seleziona **Archivi digitali** (o *Repositories*).
+3. In basso a destra clicca il bottone **AGGIUNGI**.
+4. Nel campo **URL** incolla il link del repository. Per prenderlo:
+   - Apri in un'altra scheda del browser la pagina GitHub:
+     `https://github.com/hexesoft-stefano-rossi/home-assistant-bticino`
+   - Clicca sul bottone verde **Code** in alto a destra.
+   - Nella tab **HTTPS** clicca sull'icona 📋 accanto all'URL per copiarlo.
+   - Torna in HA e incolla nel campo URL.
+5. Clicca **AGGIUNGI**, attendi la riga di conferma (HA scarica il manifest), poi **CHIUDI**.
+
+**Passo 3 — Installa l'addon**
+
+1. Nello Store, scorri in basso fino alla sezione **"Hexesoft BTicino Addons"** (viene creata automaticamente dopo l'aggiunta del repository).
+2. Clicca sulla card **Hexesoft BTicino**.
+3. Clicca **INSTALLA**.
+4. Attendi il download dell'immagine (dipende dalla connessione; tipicamente 1-3 minuti la prima volta, pochi secondi per gli aggiornamenti).
+
+**Passo 4 — Configura l'addon**
+
+1. Finita l'installazione, apri la scheda **Configurazione** dell'addon.
+2. Compila le sezioni descritte al punto 3 di questa documentazione:
+   - `bticino:` → IP e password del gateway
+   - `mqtt:` → broker, utente, password
+   - `scan_settings:` → eventuali opzioni di polling (puoi lasciare i default)
+   - le categorie **lights**, **shutters**, **thermostats**, ecc. con i tuoi dispositivi
+3. Clicca **SALVA** in basso. HA valida subito lo schema: se qualcosa è sbagliato viene mostrato un errore con la riga esatta.
+
+**Passo 5 — (Consigliato) Attiva Watchdog e Start on boot**
+
+1. Vai sulla scheda **Info** dell'addon.
+2. Attiva l'interruttore **Watchdog**: se l'addon va in crash, HA lo riavvia da solo.
+3. Attiva **Avvio al boot (Start on boot)**: così parte automaticamente ad ogni riavvio di HA.
+
+**Passo 6 — Avvia e verifica**
+
+1. Dalla scheda **Info**, clicca **AVVIA**.
+2. Passa alla scheda **Log**. Deve apparire in sequenza:
+   - `CORE -> HEXE | Hexesoft Bridge Bticino - Avvio Service`
+   - `CORE -> HEXE | Carico configurazione da: /data/options.json`
+   - `HEXE -> MQTT | Tentativo di connessione al Broker...`
+   - `AUTH -> HEXE | Sessione attivata` (login al gateway)
+   - `HEXE -> HOME | Pubblico/Confermo dispositivo: ...` per ciascun device configurato
+3. Vai in *Impostazioni → Dispositivi e servizi → MQTT* in HA: i dispositivi compaiono automaticamente raggruppati per nome.
+
+**Aggiornamenti futuri**
+
+Quando pubblichiamo una nuova versione, la card dell'addon mostra un bottone **AGGIORNA**. Clicca e aspetta: configurazione, dispositivi e stati restano identici (sono salvati in `/data/options.json`, non nell'immagine).
 
 ### 3. Parametri di configurazione
 
@@ -297,11 +349,63 @@ Before starting the addon, make sure you have:
 
 ### 2. Installation
 
-1. Go to *Settings → Add-ons → Third-party repositories*.
-2. Add `https://github.com/hexesoft-stefano-rossi/home-assistant-bticino`.
-3. Install **Hexesoft BTicino**.
-4. Open the addon *Configuration* tab and fill in the parameters below.
-5. Start the addon and watch the *Log* tab.
+The addon is installed through **Supervisor** by adding a third-party repository. The whole thing takes less than 5 minutes.
+
+**Step 1 — Open the Add-ons section**
+
+1. Click the **Settings** icon (gear, in the HA sidebar).
+2. Click **Add-ons** (some versions show *Install app* / *Components*).
+
+**Step 2 — Add the repository**
+
+1. In the top-right corner click the **three-dot menu ⋮**.
+2. From the menu select **Repositories**.
+3. In the bottom-right corner click the **ADD** button.
+4. In the **URL** field paste the repository link. To get it:
+   - Open in another browser tab the GitHub page:
+     `https://github.com/hexesoft-stefano-rossi/home-assistant-bticino`
+   - Click the green **Code** button at the top right.
+   - In the **HTTPS** tab click the 📋 icon next to the URL to copy it.
+   - Go back to HA and paste in the URL field.
+5. Click **ADD**, wait for the confirmation line (HA fetches the manifest), then **CLOSE**.
+
+**Step 3 — Install the addon**
+
+1. Scroll down in the Store until you see the **"Hexesoft BTicino Addons"** section (added automatically after step 2).
+2. Click the **Hexesoft BTicino** card.
+3. Click **INSTALL**.
+4. Wait for the image download (depends on your connection; typically 1-3 minutes the first time, seconds for updates).
+
+**Step 4 — Configure the addon**
+
+1. Once installed, open the addon's **Configuration** tab.
+2. Fill in the sections described in section 3 of this documentation:
+   - `bticino:` → gateway IP and password
+   - `mqtt:` → broker, username, password
+   - `scan_settings:` → any polling options (defaults are fine)
+   - the **lights**, **shutters**, **thermostats**, etc. categories with your devices
+3. Click **SAVE** at the bottom. HA validates the schema right away: any error is shown with the exact line.
+
+**Step 5 — (Recommended) Enable Watchdog and Start on boot**
+
+1. Go to the addon's **Info** tab.
+2. Enable the **Watchdog** switch: if the addon crashes, HA restarts it automatically.
+3. Enable **Start on boot**: so it starts automatically on every HA reboot.
+
+**Step 6 — Start and verify**
+
+1. From the **Info** tab, click **START**.
+2. Switch to the **Log** tab. You should see in sequence:
+   - `CORE -> HEXE | Hexesoft Bridge Bticino - Avvio Service`
+   - `CORE -> HEXE | Carico configurazione da: /data/options.json`
+   - `HEXE -> MQTT | Tentativo di connessione al Broker...`
+   - `AUTH -> HEXE | Sessione attivata` (gateway login)
+   - `HEXE -> HOME | Pubblico/Confermo dispositivo: ...` for each configured device
+3. Go to *Settings → Devices & Services → MQTT* in HA: devices appear automatically, grouped by name.
+
+**Future updates**
+
+When we release a new version, the addon card shows an **UPDATE** button. Click and wait: configuration, devices and states stay identical (they are stored in `/data/options.json`, not in the image).
 
 ### 3. Configuration parameters
 
